@@ -52,7 +52,6 @@
     </script>
 
     <?php
-    die();
     function dateEmSQL($dateSql)
     {
         $ano = substr($dateSql, 6);
