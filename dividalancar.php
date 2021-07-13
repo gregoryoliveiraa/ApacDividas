@@ -95,8 +95,6 @@
             $rowAluno = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($stmt);
 
-            var_export($rowAluno);
-
             if(empty($rowAluno)){
 
                 $sql = "SELECT NOME, DEPARTAMENTO FROM COLEGIO WHERE ID_COLEGIO = $idColegio";

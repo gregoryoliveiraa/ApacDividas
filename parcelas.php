@@ -357,7 +357,7 @@
                                         $idParcela = $_GET['id'];
                                         $whereClause = "WHERE P.DIVIDA_ID_DIVIDA = " . $idParcela;
                                     }
-                                    $sql = "SELECT TOP 200 * FROM PARCELA P
+                                    $sql = "SELECT TOP 150 * FROM PARCELA P
                                     INNER JOIN DIVIDA D ON D.ID_DIVIDA = P.DIVIDA_ID_DIVIDA " . $whereClause;
                                     $stmt = sqlsrv_query($conn, $sql);
                                     if ($stmt === false) {

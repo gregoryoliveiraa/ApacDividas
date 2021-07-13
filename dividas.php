@@ -301,10 +301,25 @@
                                     <select class="form-control m-b" name="parcelas">
                                         <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                             echo "<option value='" . $row['QTD_PARCELAS'] . "'>" . $row['QTD_PARCELAS'] . " </option>";
+
+                                            $sql = "SELECT STATUS_PARCELA, VALOR FROM Parcela WHERE DIVIDA_ID_DIVIDA = {$row['ID_DIVIDA']}";
+                                            $stmtValorAberto = sqlsrv_query($conn, $sql);
+                                            while ($rowValorEmAberto = sqlsrv_fetch_array($stmtValorAberto, SQLSRV_FETCH_ASSOC)) {
+                                                $valorEmAberto = "";
+                                                $valorPago = "";
+                                                if (
+                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Em Aberto' ||
+                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Negociado' ||
+                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Atrasado'
+                                                ) {
+                                                    $valorTotalEmAberto += $rowValorEmAberto['VALOR'];
+                                                }
+                                            }
                                         } ?>
                                         <option>Quantidade de parcelas</option>
                                         <?php for ($i = 1; $i <= 30; $i++) {
-                                            echo "<option value='$i'>$i X</option>";
+                                            $valor = $valorTotalEmAberto / $i;
+                                            echo "<option value='$i'>$i X de R$ " . number_format($valor, 2, ",", ".") . " </option>";
                                         } ?>
                                     </select>
                                 </div>
@@ -328,6 +343,7 @@
                             <?php
                             if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                 echo ' <input type="hidden" name="iddivida" value="' . $row['ID_DIVIDA'] . '"> ';
+                                echo ' <input type="hidden" name="qtdparcelasvalida" value="' . $row['QTD_PARCELAS'] . '"> ';
                             }
                             ?>
 
@@ -458,7 +474,7 @@
                                     <?php
                                     $top = null;
                                     if (empty($queryWhere)) {
-                                        $top = "TOP 200";
+                                        $top = "TOP 150";
                                         $queryWhere = "ORDER BY D.ID_DIVIDA DESC";
                                     }
                                     $sql = "SELECT {$top} A.NOME NOMEA, C.NOME NOMEC, * FROM DIVIDA D
@@ -471,6 +487,19 @@
                                     }
 
                                     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+
+                                        $sql = "SELECT ID_PARCELA FROM PARCELA WHERE DIVIDA_ID_DIVIDA = " . $row['ID_DIVIDA'];
+                                        $params = array();
+                                        $options =  array( "Scrollable" => SQLSRV_CURSOR_KEYSET );
+                                        $stmtParcelas = sqlsrv_query($conn, $sql, $params, $options );
+                                        $countParcelas = sqlsrv_num_rows($stmtParcelas);
+                                        if($countParcelas != $row['QTD_PARCELAS']){
+                                            $row['QTD_PARCELAS'] = $countParcelas;
+                                            $tsql = "UPDATE DIVIDA SET QTD_PARCELAS = $countParcelas WHERE ID_DIVIDA = '" . $row['ID_DIVIDA'] . "'";
+                                            sqlsrv_query($conn, $tsql);
+                                        }
+
+
                                         if ($row['STATUS_DIV'] == 'Pago') {
                                             $button = "class='btn btn-primary btn-rounded' type='button'> <i class='fa fa-money'></i>";
                                         }
@@ -494,7 +523,7 @@
                                         <td><a href='parcelas.php?idDivida=" . $row['ID_DIVIDA'] . "' title='Gerenciar parcelas desta dívida'><button class='btn btn-success btn-rounded' type='button'>" . $row['ID_DIVIDA'] . " <i class='fa fa-bar-chart'></i></button></a></td>
                                         <td> <a href='aluno.php?id=" . $row['ID_ALUNO'] . "' target='new_blank'>" . $row['RA'] . "-" . $row['NOMEA'] . "</td>
                                         <td>";
-                                        if(!$acessoUsuario){ echo "<a href='colegio.php?id=" . $row['ID_COLEGIO'] . "' target='new_blank'>"; } echo $row['DEPARTAMENTO'] . "-" . $row['NOMEC'] . "</td>
+                                        if(!$acessoUsuario){ echo "<a href='colegio.php?id=" . $row['ID_COLEGIO'] . "' target='new_blank'>"; } echo $row['DEPARTAMENTO'] . "-" . str_replace("Colégio Adventista de ", "", $row['NOMEC']) . "</td>
                                         <td>" . $row['QTD_PARCELAS'] . "</td>
                                         <td>" . $row['DATA_INICIAL']->format('d/m/Y') . "</td>
                                         <td>" . number_format($row['TOTAL'], 2, ",", ".") . "</td>
