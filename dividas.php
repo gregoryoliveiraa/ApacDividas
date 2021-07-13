@@ -71,9 +71,9 @@
     require('conexao.php');
 
     $acessoUsuario = 0;
-    if(isset($_SESSION['usuarioAcesso']) && isset($_SESSION['usuarioIdColegio'])){
+    if (isset($_SESSION['usuarioAcesso']) && isset($_SESSION['usuarioIdColegio'])) {
         $acessoUsuario = $_SESSION['usuarioAcesso'];
-        if($_SESSION['usuarioAcesso'] == 1 && $_SESSION['usuarioIdColegio'] > 0){
+        if ($_SESSION['usuarioAcesso'] == 1 && $_SESSION['usuarioIdColegio'] > 0) {
             $_GET['btFiltrarDivida'] = 1;
             $sql = "SELECT * FROM COLEGIO WHERE ID_COLEGIO = {$_SESSION['usuarioIdColegio']}";
             $stmt = sqlsrv_query($conn, $sql);
@@ -94,10 +94,43 @@
         $juros = empty($_POST['juros']) ? NULL : $_POST['juros'];
         $data = dateEmSQL($_POST['data']);
         $status = empty($_POST['status']) ? NULL : $_POST['status'];
+        $qtdParcelasDivida = empty($_POST['qtdParcelasDivida']) ? NULL : $_POST['qtdParcelasDivida'];
+        $valorEmAbertoDivida = empty($_POST['valorEmAbertoDivida']) ? NULL : $_POST['valorEmAbertoDivida'];
+        $parcelasAlterar = empty($_POST['parcelasAlterar']) ? NULL : $_POST['parcelasAlterar'];
+        $parcelasPagasTotal = empty($_POST['parcelasPagasTotal']) ? NULL : $_POST['parcelasPagasTotal'];
+        
 
         if (isset($_POST['iddivida'])) {
 
             $iddivida = $_POST['iddivida'];
+            $countParcelasAlterar = 0;
+            if ($qtdParcelasDivida != $parcelas) {
+
+                $sql = "SELECT * FROM PARCELA WHERE DIVIDA_ID_DIVIDA = $iddivida AND STATUS_PARCELA = 'Pago' ORDER BY NUMERO DESC";
+                $stmt = sqlsrv_query($conn, $sql);
+                $rowParcela = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                $parcelaInicial = $rowParcela['NUMERO'];
+                $dataVencimento = $rowParcela['DATA_VENCIMENTO'];
+
+                $tsql = "DELETE FROM PARCELA WHERE (STATUS_PARCELA = 'Em Aberto' OR STATUS_PARCELA =  'Atrasado') AND DIVIDA_ID_DIVIDA = " . $idDivida;
+                sqlsrv_query($conn, $tsql);
+
+                for($i=1; $i <= $parcelas; $i++){
+                    $parcelaInicial++;
+                    $tsql= "INSERT INTO PARCELA (DIVIDA_ID_DIVIDA, NUMERO, STATUS_PARCELA, FORMA_PAGAMENTO, DATA_VENCIMENTO) VALUES (
+                        '{$idDivida}',
+                        '{$parcelaInicial}',
+                        'Em aberto',
+                        '{$rowParcela['FORMA_PAGAMENTO']}',
+                        '{$dataVencimento->modify('+'.$i.' month')->format('d/m/Y')}')";
+                    if (!sqlsrv_query($conn, $tsql, $var))
+                    {
+                        die('Erro ao cadastrar Responsavel: ' . sqlsrv_errors());
+                    }
+                }
+            }
+
+            $parcelas = $parcelasPagasTotal + $parcelas;
 
             $tsql = "UPDATE DIVIDA SET
                     TOTAL = ?,
@@ -257,111 +290,128 @@
 
 
     <div class="wrapper wrapper-content animated fadeInRight">
-    
-    <?php if(!$acessoUsuario){ ?>
-        <div class="row">
-            <div class="col-lg-12">
-                <?php
-                $collapsed = "";
-                if (!isset($row['ID_DIVIDA'])) {
-                    $_GET['id'] = null;
-                    $collapsed = "collapsed";
-                }
-                ?>
-                <div class="ibox <?php echo $collapsed; ?>">
-                    <div class="ibox-title">
-                        <h5>Edição <small> e controle</small></h5>
-                        <div class="ibox-tools">
-                            <a class="collapse-link">
-                                <i class="fa fa-chevron-up"></i>
-                            </a>
-                            <a class="close-link">
-                                <i class="fa fa-times"></i>
-                            </a>
+
+        <?php if (!$acessoUsuario) { ?>
+            <div class="row">
+                <div class="col-lg-12">
+                    <?php
+                    $collapsed = "";
+                    if (!isset($row['ID_DIVIDA'])) {
+                        $_GET['id'] = null;
+                        $collapsed = "collapsed";
+                    }
+                    ?>
+                    <div class="ibox <?php echo $collapsed; ?>">
+                        <div class="ibox-title">
+                            <h5>Edição <small> e controle</small></h5>
+                            <div class="ibox-tools">
+                                <a class="collapse-link">
+                                    <i class="fa fa-chevron-up"></i>
+                                </a>
+                                <a class="close-link">
+                                    <i class="fa fa-times"></i>
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="ibox-content">
-                        <form method="POST" action="">
-                            <div class="form-group row">
-                                <div class="col-sm-4"><input type="text" name="total" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                                                                            echo "value='" . $row['TOTAL'] . "'";
-                                                                                        } ?> placeholder="Total" class="form-control" required></div>
-                                <div class="col-sm-4"><input type="text" name="entrada" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                                                                            echo "value='" . $row['ENTRADA'] . "'";
-                                                                                        } ?> placeholder="Entrada" class="form-control"></div>
-                                <div class="col-sm-4"><input name="data" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                                                                echo "value='" . $row['DATA_INICIAL']->format('d/m/Y') . "'";
-                                                                            } else {
-                                                                                echo "type='date'";
-                                                                            } ?> placeholder="Data inicial" class="form-control" required></div>
-                            </div>
+                        <div class="ibox-content">
+                            <form method="POST" action="">
+                                <div class="form-group row">
+                                    <div class="col-sm-4"><input type="text" name="total" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                                                                echo "value='" . $row['TOTAL'] . "'";
+                                                                                            } ?> placeholder="Total" class="form-control" required></div>
+                                    <div class="col-sm-4"><input type="text" name="entrada" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                                                                echo "value='" . $row['ENTRADA'] . "'";
+                                                                                            } ?> placeholder="Entrada" class="form-control"></div>
+                                    <div class="col-sm-4"><input name="data" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                                                    echo "value='" . $row['DATA_INICIAL']->format('d/m/Y') . "'";
+                                                                                } else {
+                                                                                    echo "type='date'";
+                                                                                } ?> placeholder="Data inicial" class="form-control" required></div>
+                                </div>
 
-                            <div class="form-group row">
-                                <div class="col-sm-4">
-                                    <select class="form-control m-b" name="parcelas">
-                                        <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                            echo "<option value='" . $row['QTD_PARCELAS'] . "'>" . $row['QTD_PARCELAS'] . " </option>";
+                                <div class="form-group row">
+                                    <div class="col-sm-4">
+                                        <select class="form-control m-b" name="parcelas">
+                                            <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                $total = $row['TOTAL'] / $row['QTD_PARCELAS'];
+                                                echo "<option value='" . $row['QTD_PARCELAS'] . "'>" . $row['QTD_PARCELAS'] . " de R$ " . number_format($total, 2, ",", ".") . "</option>";
 
-                                            $sql = "SELECT STATUS_PARCELA, VALOR FROM Parcela WHERE DIVIDA_ID_DIVIDA = {$row['ID_DIVIDA']}";
-                                            $stmtValorAberto = sqlsrv_query($conn, $sql);
-                                            while ($rowValorEmAberto = sqlsrv_fetch_array($stmtValorAberto, SQLSRV_FETCH_ASSOC)) {
-                                                $valorEmAberto = "";
-                                                $valorPago = "";
-                                                if (
-                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Em Aberto' ||
-                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Negociado' ||
-                                                    $rowValorEmAberto['STATUS_PARCELA'] == 'Atrasado'
-                                                ) {
-                                                    $valorTotalEmAberto += $rowValorEmAberto['VALOR'];
+                                                $sql = "SELECT ID_PARCELA, STATUS_PARCELA, VALOR FROM Parcela WHERE DIVIDA_ID_DIVIDA = {$row['ID_DIVIDA']}";
+                                                $stmtValorAberto = sqlsrv_query($conn, $sql);
+                                                $countPacelasPagas = 0;
+                                                $valorTotalEmAberto = 0;
+                                                while ($rowValorEmAberto = sqlsrv_fetch_array($stmtValorAberto, SQLSRV_FETCH_ASSOC)) {
+                                                    if (
+                                                        $rowValorEmAberto['STATUS_PARCELA'] == 'Em Aberto' ||
+                                                        $rowValorEmAberto['STATUS_PARCELA'] == 'Negociado' ||
+                                                        $rowValorEmAberto['STATUS_PARCELA'] == 'Atrasado'
+                                                    ) {
+                                                        $valorTotalEmAberto += $rowValorEmAberto['VALOR'];
+                                                    } else {
+                                                        $valorPago += $rowValorEmAberto['VALOR'];
+                                                        $countPacelasPagas++;
+                                                    }
                                                 }
-                                            }
-                                        } ?>
-                                        <option>Quantidade de parcelas</option>
-                                        <?php for ($i = 1; $i <= 30; $i++) {
-                                            $valor = $valorTotalEmAberto / $i;
-                                            echo "<option value='$i'>$i X de R$ " . number_format($valor, 2, ",", ".") . " </option>";
-                                        } ?>
-                                    </select>
-                                </div>
-                                <div class="col-sm-4"><input type="text" name="juros" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                                                                            echo "value='" . $row['JUROS'] . "'";
-                                                                                        } ?> placeholder="Juros" class="form-control"></div>
-                                <div class="col-sm-4"><select class="form-control m-b" name="status">
-                                        <?php if (isset($_GET['id']) && !isset($_POST['btNovo']) && isset($row['STATUS_DIV'])) {
-                                            echo "<option value='" . $row['STATUS_DIV'] . "'>" . $row['STATUS_DIV'] . " </option>";
-                                        } ?>
-                                        <option>Status</option>
-                                        <option>Em Aberto</option>
-                                        <option>Em aprovação</option>
-                                        <option>Pago</option>
-                                        <option>Atrasado</option>
-                                        <option>Negociado</option>
-                                    </select>
-                                </div>
-                            </div>
+                                                $textoPagas = "";
+                                                if ($countPacelasPagas) {
+                                                    $textoPagasPlural = $countPacelasPagas > 1 ? "pagas" : "paga";
+                                                    $textoPagas = $countPacelasPagas . " parc. " . $textoPagasPlural . " ( R$ " . number_format($valorPago, 2, ",", ".") . " )  + ";
+                                                }
+                                            } else {
+                                            ?>
+                                                <option>Quantidade de parcelas</option>
+                                            <?php }
 
-                            <?php
-                            if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
-                                echo ' <input type="hidden" name="iddivida" value="' . $row['ID_DIVIDA'] . '"> ';
-                                echo ' <input type="hidden" name="qtdparcelasvalida" value="' . $row['QTD_PARCELAS'] . '"> ';
-                            }
-                            ?>
-
-                            <div class="hr-line-dashed"></div>
-                            <div class="form-group row">
-                                <div class="col-sm-4 col-sm-offset-2">
-                                    <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) { ?><button name="btEdicao" class="btn btn-success btn-lg" type="submit"><?php echo "Salvar edição"; ?> </button><?php } ?>
-                                    <?php if (!isset($_GET['id']) || isset($_POST['btNovo'])) { ?>
-                                        <button class="btn btn-white btn-lg" type="reset">Limpar</button>
-                                    <? } ?>
+                                            if ($valorTotalEmAberto > 1) {
+                                                for ($i = 1; $i <= 30; $i++) {
+                                                    $totalParcelas = $countPacelasPagas + $i;
+                                                    $valor = $valorTotalEmAberto / $i;
+                                                    echo "<option value='$i'>$textoPagas $i X de R$ " . number_format($valor, 2, ",", ".") . " - Total de Parc: " . $totalParcelas. "</option>";
+                                                }
+                                            } ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-4"><input type="text" name="juros" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                                                                echo "value='" . $row['JUROS'] . "'";
+                                                                                            } ?> placeholder="Juros" class="form-control"></div>
+                                    <div class="col-sm-4"><select class="form-control m-b" name="status">
+                                            <?php if (isset($_GET['id']) && !isset($_POST['btNovo']) && isset($row['STATUS_DIV'])) {
+                                                echo "<option value='" . $row['STATUS_DIV'] . "'>" . $row['STATUS_DIV'] . " </option>";
+                                            } ?>
+                                            <option>Status</option>
+                                            <option>Em Aberto</option>
+                                            <option>Em aprovação</option>
+                                            <option>Pago</option>
+                                            <option>Atrasado</option>
+                                            <option>Negociado</option>
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
-                        </form>
+
+                                <?php
+                                if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                    echo ' <input type="hidden" name="iddivida" value="' . $row['ID_DIVIDA'] . '"> ';
+                                    echo ' <input type="hidden" name="qtdParcelasDivida" value="' . $row['QTD_PARCELAS'] . '"> ';
+                                    echo ' <input type="hidden" name="valorEmAbertoDivida" value="' . $valorTotalEmAberto . '"> ';
+                                    echo ' <input type="hidden" name="parcelasPagasTotal" value="' . $countPacelasPagas . '"> ';
+                                }
+                                ?>
+
+                                <div class="hr-line-dashed"></div>
+                                <div class="form-group row">
+                                    <div class="col-sm-4 col-sm-offset-2">
+                                        <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) { ?><button name="btEdicao" class="btn btn-success btn-lg" type="submit"><?php echo "Salvar edição"; ?> </button><?php } ?>
+                                        <?php if (!isset($_GET['id']) || isset($_POST['btNovo'])) { ?>
+                                            <button class="btn btn-white btn-lg" type="reset">Limpar</button>
+                                        <? } ?>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    <? } ?>
+        <? } ?>
 
         <div class="row">
             <div class="col-lg-12">
@@ -383,25 +433,25 @@
                             </div>
                             <div class="form-group row">
                                 <div class="col-sm-4"><input type="text" name="idDivida" placeholder="ID Divida" class="form-control"></div>
-                            <?php if(!$acessoUsuario){ ?>
-                                <div class="col-sm-4">
-                                    <select class="form-control m-b" name="departamento">
-                                        <option>Selecione o Colegio</option>
-                                        <?php
-                                        $sql = "SELECT * FROM COLEGIO ORDER BY DEPARTAMENTO ASC";
-                                        $stmt = sqlsrv_query($conn, $sql);
-                                        if ($stmt === false) {
-                                            die(print_r(sqlsrv_errors(), true));
-                                        }
+                                <?php if (!$acessoUsuario) { ?>
+                                    <div class="col-sm-4">
+                                        <select class="form-control m-b" name="departamento">
+                                            <option>Selecione o Colegio</option>
+                                            <?php
+                                            $sql = "SELECT * FROM COLEGIO ORDER BY DEPARTAMENTO ASC";
+                                            $stmt = sqlsrv_query($conn, $sql);
+                                            if ($stmt === false) {
+                                                die(print_r(sqlsrv_errors(), true));
+                                            }
 
-                                        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                                            echo "<option value='" . $row['DEPARTAMENTO'] . "'>" . $row['DEPARTAMENTO'] . " - " . $row['NOME'] . "</option>";
-                                        }
-                                        sqlsrv_free_stmt($stmt);
-                                        ?>
-                                    </select>
-                                </div>
-                            <? } ?>
+                                            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                                                echo "<option value='" . $row['DEPARTAMENTO'] . "'>" . $row['DEPARTAMENTO'] . " - " . $row['NOME'] . "</option>";
+                                            }
+                                            sqlsrv_free_stmt($stmt);
+                                            ?>
+                                        </select>
+                                    </div>
+                                <? } ?>
                                 <div class="col-sm-4"><select class="form-control m-b" name="status">
                                         <option>Status</option>
                                         <option>Em Aberto</option>
@@ -490,10 +540,10 @@
 
                                         $sql = "SELECT ID_PARCELA FROM PARCELA WHERE DIVIDA_ID_DIVIDA = " . $row['ID_DIVIDA'];
                                         $params = array();
-                                        $options =  array( "Scrollable" => SQLSRV_CURSOR_KEYSET );
-                                        $stmtParcelas = sqlsrv_query($conn, $sql, $params, $options );
+                                        $options =  array("Scrollable" => SQLSRV_CURSOR_KEYSET);
+                                        $stmtParcelas = sqlsrv_query($conn, $sql, $params, $options);
                                         $countParcelas = sqlsrv_num_rows($stmtParcelas);
-                                        if($countParcelas != $row['QTD_PARCELAS']){
+                                        if ($countParcelas != $row['QTD_PARCELAS']) {
                                             $row['QTD_PARCELAS'] = $countParcelas;
                                             $tsql = "UPDATE DIVIDA SET QTD_PARCELAS = $countParcelas WHERE ID_DIVIDA = '" . $row['ID_DIVIDA'] . "'";
                                             sqlsrv_query($conn, $tsql);
@@ -523,7 +573,10 @@
                                         <td><a href='parcelas.php?idDivida=" . $row['ID_DIVIDA'] . "' title='Gerenciar parcelas desta dívida'><button class='btn btn-success btn-rounded' type='button'>" . $row['ID_DIVIDA'] . " <i class='fa fa-bar-chart'></i></button></a></td>
                                         <td> <a href='aluno.php?id=" . $row['ID_ALUNO'] . "' target='new_blank'>" . $row['RA'] . "-" . $row['NOMEA'] . "</td>
                                         <td>";
-                                        if(!$acessoUsuario){ echo "<a href='colegio.php?id=" . $row['ID_COLEGIO'] . "' target='new_blank'>"; } echo $row['DEPARTAMENTO'] . "-" . str_replace("Colégio Adventista de ", "", $row['NOMEC']) . "</td>
+                                        if (!$acessoUsuario) {
+                                            echo "<a href='colegio.php?id=" . $row['ID_COLEGIO'] . "' target='new_blank'>";
+                                        }
+                                        echo $row['DEPARTAMENTO'] . "-" . str_replace("Colégio Adventista de ", "", $row['NOMEC']) . "</td>
                                         <td>" . $row['QTD_PARCELAS'] . "</td>
                                         <td>" . $row['DATA_INICIAL']->format('d/m/Y') . "</td>
                                         <td>" . number_format($row['TOTAL'], 2, ",", ".") . "</td>
@@ -531,12 +584,12 @@
                                         ";
                                         echo "<td>
                                                 <a href='relatorios/dividaContrato.php?idDivida=" . $row['ID_DIVIDA'] . "' title='Imprimir contrato' target='new_blank'><button class='btn btn-success btn-circle' type='button'><i class='fa fa-print'></i></button></a>";
-                                        if(!$acessoUsuario){
+                                        if (!$acessoUsuario) {
                                             echo "
                                             <a href='dividas.php?id=" . $row['ID_DIVIDA'] . "' title='Editar'><button class='btn btn-info btn-circle' type='button'><i class='fa fa-edit'></i></button></a>
                                             <a href='javascript:deletar(" . $row['ID_DIVIDA'] . ");' title='Deletar'><button class='btn btn-danger btn-circle' type='button'><i class='fa fa-trash'></i></button>";
                                         }
-                                    echo "</td></tr>";
+                                        echo "</td></tr>";
                                     }
 
                                     sqlsrv_free_stmt($stmt);
@@ -669,15 +722,15 @@
                                 <br></br>
                                 <address>
                                     <h3>
-                                    <b>Total Dívidas:</b>
+                                        <b>Total Dívidas:</b>
                                         <?php echo "R$ " . number_format($valorTotalDividas, 2, ",", "."); ?><br><br>
 
-                                    <b>Total créditos:</b>
+                                        <b>Total créditos:</b>
                                         <span style="color:red;"><?php echo "R$ " . number_format($valorTotalPagoResult, 2, ",", "."); ?></span><br><br>
-                                    
-                                    <b>Total débitos:</b>
+
+                                        <b>Total débitos:</b>
                                         <?php echo "R$ " . number_format($valorTotalEmAbertoResult, 2, ",", "."); ?><br>
-                                    <p style="font-size: 10px;">(A receber)</p><br>
+                                        <p style="font-size: 10px;">(A receber)</p><br>
                                     </h3>
                                 </address>
                             </div>
@@ -697,7 +750,7 @@
                             <div class="row">
                                 <div class="col-lg-12">
                                     <div class="title-action">
-                                    <h3>Imprimir extrato dívidas</h3>
+                                        <h3>Imprimir extrato dívidas</h3>
                                         <a href="relatorios/dividasColegio.php?departamento=<? echo $_GET['departamento']; ?>&where=<? echo $queryWhere; ?>" target="_blank" class="btn btn-success"><i class="fa fa-file-pdf-o"></i> PDF </a>
                                         <a href="relatorios/dividasColegioExcel.php?departamento=<? echo $_GET['departamento']; ?>&where=<? echo $queryWhere; ?>" target="_blank" class="btn btn-success"><i class="fa fa-file-excel-o"></i> EXCEL </a>
                                     </div>
