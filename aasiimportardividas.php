@@ -169,6 +169,9 @@
             $rowDivida = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($stmt);
 
+            $dataSync = new DateTime('now');
+            $dataSync = $dataSync->format('Y-m-d');
+
             if(empty($rowDivida)){
                 try{
                     $tsql= "INSERT INTO DIVIDA (
@@ -176,10 +179,11 @@
                         TOTAL,
                         QTD_PARCELAS,
                         DATA_INICIAL,
-                        STATUS_DIV)
-                        VALUES (?, ?, ?, ?, ?)";
+                        STATUS_DIV,
+                        DATA_SYNC_ASSI)
+                        VALUES (?, ?, ?, ?, ?, ?)";
 
-                    $var = [$idAluno, $valor, $quantidadeParcelas, $dataInicialDivida, "Em Aberto"];
+                    $var = [$idAluno, $valor, $quantidadeParcelas, $dataInicialDivida, "Em Aberto", $dataSync];
                     sqlsrv_query($conn, $tsql, $var);
                 }
                 catch(Exception $e)
@@ -207,6 +211,8 @@
                 $cont++;
             }
             if(empty($cont)){
+                $dataSync = new DateTime('now');
+                $dataSync = $dataSync->format('Y-m-d');
                 for($i = 1; $i <= $quantidadeParcelas; $i++){
                     $dataParcela = dataFormatada($ano, $mes);
                     $mes++;
@@ -221,10 +227,11 @@
                             VALOR,
                             STATUS_PARCELA,
                             FORMA_PAGAMENTO,
-                            DATA_VENCIMENTO)
-                            VALUES (?, ?, ?, ?, ?, ?)";
+                            DATA_VENCIMENTO,
+                            DATA_SYNC_ASSI)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-                        $var = [$idDivida, $i, $valorParcela, "Em Aberto", "Boleto", $dataParcela];
+                        $var = [$idDivida, $i, $valorParcela, "Em Aberto", "Boleto", $dataParcela, $dataSync];
                         sqlsrv_query($conn, $tsql, $var);
                     }
                     catch(Exception $e)

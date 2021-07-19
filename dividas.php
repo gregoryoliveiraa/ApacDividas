@@ -99,7 +99,6 @@
         $parcelasAlterar = empty($_POST['parcelasAlterar']) ? NULL : $_POST['parcelasAlterar'];
         $parcelasPagasTotal = empty($_POST['parcelasPagasTotal']) ? NULL : $_POST['parcelasPagasTotal'];
         
-
         if (isset($_POST['iddivida'])) {
 
             $iddivida = $_POST['iddivida'];
@@ -109,23 +108,48 @@
                 $sql = "SELECT * FROM PARCELA WHERE DIVIDA_ID_DIVIDA = $iddivida AND STATUS_PARCELA = 'Pago' ORDER BY NUMERO DESC";
                 $stmt = sqlsrv_query($conn, $sql);
                 $rowParcela = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-                $parcelaInicial = $rowParcela['NUMERO'];
-                $dataVencimento = $rowParcela['DATA_VENCIMENTO'];
+                if (!empty($rowParcela)){
+                    $parcelaInicial = $rowParcela['NUMERO'];
+                    $dataVencimento = $rowParcela['DATA_VENCIMENTO'];
+                    $formaPag = $rowParcela['FORMA_PAGAMENTO'];
+                    $dataSync = $rowParcela['DATA_SYNC_ASSI']->format('Y-m-d');
+                }else{
+                    $sql = "SELECT * FROM PARCELA WHERE DIVIDA_ID_DIVIDA = $iddivida AND STATUS_PARCELA != 'Pago' ORDER BY NUMERO DESC";
+                    $stmt = sqlsrv_query($conn, $sql);
+                    $rowParcela = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                    if (!empty($rowParcela)){
+                        $parcelaInicial = $rowParcela['NUMERO'];
+                        $dataVencimento = $rowParcela['DATA_VENCIMENTO'];
+                        $formaPag = $rowParcela['FORMA_PAGAMENTO'];
+                        $dataSync = $rowParcela['DATA_SYNC_ASSI']->format('Y-m-d');
+                    } else {
+                        $parcelaInicial = 0;
+                        $dataVencimento = new DateTime('now');
+                        $formaPag = "Boleto";
+                        $dataSync = NULL;
+                    }
+                }
 
-                $tsql = "DELETE FROM PARCELA WHERE (STATUS_PARCELA = 'Em Aberto' OR STATUS_PARCELA =  'Atrasado') AND DIVIDA_ID_DIVIDA = " . $idDivida;
+                $valor = $valorEmAbertoDivida / $parcelas;
+
+                $tsql = "DELETE FROM PARCELA WHERE (STATUS_PARCELA = 'Em Aberto' OR STATUS_PARCELA = 'Atrasado') AND DIVIDA_ID_DIVIDA = " . $iddivida;
                 sqlsrv_query($conn, $tsql);
 
                 for($i=1; $i <= $parcelas; $i++){
                     $parcelaInicial++;
-                    $tsql= "INSERT INTO PARCELA (DIVIDA_ID_DIVIDA, NUMERO, STATUS_PARCELA, FORMA_PAGAMENTO, DATA_VENCIMENTO) VALUES (
-                        '{$idDivida}',
+                    $dataV = $dataVencimento->modify('+1 month')->format('Y-m-d');
+                    $tsql2= "INSERT INTO PARCELA (DIVIDA_ID_DIVIDA, NUMERO, VALOR, STATUS_PARCELA, FORMA_PAGAMENTO, DATA_VENCIMENTO, DATA_SYNC_ASSI) VALUES (
+                        '{$iddivida}',
                         '{$parcelaInicial}',
-                        'Em aberto',
-                        '{$rowParcela['FORMA_PAGAMENTO']}',
-                        '{$dataVencimento->modify('+'.$i.' month')->format('d/m/Y')}')";
-                    if (!sqlsrv_query($conn, $tsql, $var))
+                        '{$valor}',
+                        'Em Aberto',
+                        '{$formaPag}',
+                        '{$dataV}',
+                        '{$dataSync}')";
+
+                    if (!sqlsrv_query($conn, $tsql2))
                     {
-                        die('Erro ao cadastrar Responsavel: ' . sqlsrv_errors());
+                        die('Erro ao editar dívida: ' . sqlsrv_errors());
                     }
                 }
             }
@@ -186,6 +210,7 @@
         echo "<meta http-equiv='refresh' content='1;url=dividas.php'>";
     }
 
+    $queryWhere = "";
 
     if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
 
@@ -197,15 +222,14 @@
 
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
+
     }
 
     if (!isset($row['ID_DIVIDA'])) {
         $_GET['id'] = null;
     }
 
-    $queryWhere = "";
-
-    if (isset($_GET['btFiltrarDivida'])) {
+    if (isset($_GET['btFiltrarDivida']) || isset($_GET['id']) ) {
 
         $queryWhere = "Where ";
         $cont = 0;
@@ -222,6 +246,11 @@
 
         if (!empty($_GET['idDivida'])) {
             $idDivida = $_GET['idDivida'];
+            $queryWhere = $queryWhere . "D.ID_DIVIDA = $idDivida AND ";
+        }
+
+        if (!empty($_GET['id'])) {
+            $idDivida = $_GET['id'];
             $queryWhere = $queryWhere . "D.ID_DIVIDA = $idDivida AND ";
         }
 
@@ -253,6 +282,16 @@
         if (!empty($_GET['status']) && $_GET['status'] != "Status") {
             $status = $_GET['status'];
             $queryWhere = $queryWhere . "D.STATUS_DIV LIKE '$status' AND ";
+        }
+        
+        if (!empty($_GET['status_sync']) && $_GET['status_sync'] != 0) {
+            $status = $_GET['status'];
+            if ($_GET['status_sync'] == 1){
+                $queryWhere = $queryWhere . "D.DATA_SYNC_ASSI IS NOT NULL AND ";
+            }
+            else if ($_GET['status_sync'] == 2){
+                $queryWhere = $queryWhere . "D.DATA_SYNC_ASSI IS NULL AND ";
+            }
         }
 
         $liberaExtratoPesquisa = true;
@@ -332,12 +371,17 @@
                                 <div class="form-group row">
                                     <div class="col-sm-4">
                                         <select class="form-control m-b" name="parcelas">
-                                            <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                            <?php
+                                            if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                                $row['QTD_PARCELAS'] = empty($row['QTD_PARCELAS']) ? 1 : $row['QTD_PARCELAS'];
+
                                                 $total = $row['TOTAL'] / $row['QTD_PARCELAS'];
                                                 echo "<option value='" . $row['QTD_PARCELAS'] . "'>" . $row['QTD_PARCELAS'] . " de R$ " . number_format($total, 2, ",", ".") . "</option>";
 
-                                                $sql = "SELECT ID_PARCELA, STATUS_PARCELA, VALOR FROM Parcela WHERE DIVIDA_ID_DIVIDA = {$row['ID_DIVIDA']}";
+                                                $sql = "SELECT ID_PARCELA, STATUS_PARCELA, VALOR FROM PARCELA WHERE DIVIDA_ID_DIVIDA = " . $row['ID_DIVIDA'];
+
                                                 $stmtValorAberto = sqlsrv_query($conn, $sql);
+                                                $valorPago = 0;
                                                 $countPacelasPagas = 0;
                                                 $valorTotalEmAberto = 0;
                                                 while ($rowValorEmAberto = sqlsrv_fetch_array($stmtValorAberto, SQLSRV_FETCH_ASSOC)) {
@@ -361,6 +405,8 @@
                                             ?>
                                                 <option>Quantidade de parcelas</option>
                                             <?php }
+
+                                            $valorTotalEmAberto = $valorTotalEmAberto != $row['TOTAL'] ? ($row['TOTAL'] - $valorPago) : $valorTotalEmAberto;
 
                                             if ($valorTotalEmAberto > 1) {
                                                 for ($i = 1; $i <= 30; $i++) {
@@ -400,7 +446,8 @@
                                 <div class="hr-line-dashed"></div>
                                 <div class="form-group row">
                                     <div class="col-sm-4 col-sm-offset-2">
-                                        <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) { ?><button name="btEdicao" class="btn btn-success btn-lg" type="submit"><?php echo "Salvar edição"; ?> </button><?php } ?>
+                                        <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) { ?><button name="btEdicao" class="btn btn-success btn-lg" type="submit"><?php echo "Salvar edição"; ?> </button>
+                                            <a href="parcelas.php?idDivida=<? echo $_GET['id']; ?>" target="_blank" class="btn btn-info"><i class="fa fa-bar-chart"></i> Vizualizar detalhes</a> <?php } ?>
                                         <?php if (!isset($_GET['id']) || isset($_POST['btNovo'])) { ?>
                                             <button class="btn btn-white btn-lg" type="reset">Limpar</button>
                                         <? } ?>
@@ -464,9 +511,15 @@
                             </div>
 
                             <div class="form-group row">
-                                <div class="col-sm-4"><input type="text" name="raAluno" placeholder="RA  Aluno" class="form-control"></div>
-                                <div class="col-sm-4"><input type="text" name="nomeAluno" placeholder="Nome Aluno" class="form-control"></div>
-                                <div class="col-sm-4"><input type="text" name="nomeResponsavel" placeholder="Nome Responsável" class="form-control"></div>
+                                <div class="col-sm-3"><input type="text" name="raAluno" placeholder="RA  Aluno" class="form-control"></div>
+                                <div class="col-sm-3"><input type="text" name="nomeAluno" placeholder="Nome Aluno" class="form-control"></div>
+                                <div class="col-sm-3"><input type="text" name="nomeResponsavel" placeholder="Nome Responsável" class="form-control"></div>
+                                <div class="col-sm-3"><select class="form-control m-b" name="status_sync">
+                                        <option value="0">Status sincronização com ASSI</option>
+                                        <option value="1">Sincronizado</option>
+                                        <option value="2">Não Sincronizado</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="form-group row">
@@ -565,6 +618,7 @@
                                         if ($row['STATUS_DIV'] == 'Em aprovação') {
                                             $button = "class='btn btn-warning btn-rounded' type='button'> <i class='fa fa-warning'></i>";
                                         }
+                                        $buttonStatusASSI = $row['DATA_SYNC_ASSI'] ? "<i class='fa fa-refresh' title='Sicronizado com ASSI: " . $row['DATA_SYNC_ASSI']->format('d/m/Y') . "'></i>" : "<i class='fa fa-exclamation-circle' title='Divida não sincronizada com ASSI'> ";
                                         if (empty($row['STATUS_DIV'])) {
                                             $button = "class='btn btn-secondary btn-rounded'";
                                             $row['STATUS_DIV'] = "Sem status";
@@ -580,7 +634,7 @@
                                         <td>" . $row['QTD_PARCELAS'] . "</td>
                                         <td>" . $row['DATA_INICIAL']->format('d/m/Y') . "</td>
                                         <td>" . number_format($row['TOTAL'], 2, ",", ".") . "</td>
-                                        <td> <button " . $button . " " . $row['STATUS_DIV'] . "</button></td>
+                                        <td> <button " . $button . " " . $row['STATUS_DIV'] . "</button> $buttonStatusASSI </td>
                                         ";
                                         echo "<td>
                                                 <a href='relatorios/dividaContrato.php?idDivida=" . $row['ID_DIVIDA'] . "' title='Imprimir contrato' target='new_blank'><button class='btn btn-success btn-circle' type='button'><i class='fa fa-print'></i></button></a>";

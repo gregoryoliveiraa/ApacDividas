@@ -218,6 +218,8 @@
             while($row = sqlsrv_fetch_array($stmt)) {
                 $cont++;
             }
+            $dataSync = new DateTime('now');
+            $dataSync = $dataSync->format('Y-m-d');
             if(empty($cont)){
                 for($i = 1; $i <= $quantidadeParcelas; $i++){
                     $dataParcela = dataFormatada($ano, $mes);
@@ -233,10 +235,11 @@
                             VALOR,
                             STATUS_PARCELA,
                             FORMA_PAGAMENTO,
-                            DATA_VENCIMENTO)
-                            VALUES (?, ?, ?, ?, ?, ?)";
+                            DATA_VENCIMENTO,
+                            DATA_SYNC_ASSI)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-                        $var = [$idDivida, $i, $valorParcela, "Em Aberto", "Boleto", $dataParcela];
+                        $var = [$idDivida, $i, $valorParcela, "Em Aberto", "Boleto", $dataParcela, $dataSync];
                         sqlsrv_query($conn, $tsql, $var);
                     }
                     catch(Exception $e)

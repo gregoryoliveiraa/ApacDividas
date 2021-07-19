@@ -80,11 +80,16 @@
 
     if (isset($_POST['btEdicao'])) {
 
+
         $numero = $_POST['numero'];
         $valor = empty($_POST['valor']) ? NULL : $_POST['valor'];
         $data = dateEmSQL($_POST['data']);
+        $dataSync = empty($_POST['dataSync']) ? NULL : "'".dateEmSQL($_POST['dataSync'])."'";
         $forma_pagamento = empty($_POST['forma_pagamento']) ? NULL : $_POST['forma_pagamento'];
         $status = empty($_POST['status']) ? NULL : $_POST['status'];
+
+        // var_export([$_POST['dataSync'], $dataSync]);
+        // die();
 
         if (isset($_POST['idparcela'])) {
 
@@ -95,7 +100,8 @@
                 STATUS_PARCELA = '$status',
                 FORMA_PAGAMENTO = '$forma_pagamento',
                 NUMERO = '$numero',
-                DATA_VENCIMENTO= '$data'
+                DATA_VENCIMENTO = '$data',
+                DATA_SYNC_ASSI = $dataSync
                 WHERE ID_PARCELA = $idParcela";
             sqlsrv_query($conn, $tsql);
 
@@ -251,21 +257,26 @@
                     <div class="ibox-content">
                         <form method="POST" action="">
                             <div class="form-group row">
-                                <div class="col-sm-4"><input type="text" name="numero" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                <div class="col-sm-3"><label>Numero</label><input type="text" name="numero" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                                                                             echo "value='" . $row['NUMERO'] . "'";
                                                                                         } ?> placeholder="Total" class="form-control" required></div>
-                                <div class="col-sm-4"><input type="text" name="valor" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                <div class="col-sm-3"><label>Valor</label><input type="text" name="valor" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                                                                             echo "value='" . $row['VALOR'] . "'";
                                                                                         } ?> placeholder="Entrada" class="form-control"></div>
-                                <div class="col-sm-4"><input name="data" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
+                                <div class="col-sm-3"><label>Data Vencimento</label><input name="data" <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                                                                 echo "value='" . $row['DATA_VENCIMENTO']->format('d/m/Y') . "'";
                                                                             } else {
                                                                                 echo "type='date'";
                                                                             } ?> placeholder="Data inicial" class="form-control" required></div>
+                                <div class="col-sm-3"><label>Data sincronização</label><input name="dataSync" <?php if (isset($_GET['id']) && !isset($_POST['btNovo']) && $row['DATA_SYNC_ASSI']) {
+                                                                                echo "value='" . $row['DATA_SYNC_ASSI']->format('d/m/Y') . "'";
+                                                                            } else {
+                                                                                echo "type='date'";
+                                                                            } ?> placeholder="Data inicial" class="form-control"></div>
                             </div>
 
                             <div class="form-group row">
-                                <div class="col-sm-6">
+                                <div class="col-sm-6"><label>Forma de pagamento</label>
                                     <select class="form-control m-b" name="forma_pagamento">
                                         <?php if (isset($_GET['id']) && !isset($_POST['btNovo']) && isset($row['FORMA_PAGAMENTO'])) {
                                             echo "<option value='" . $row['FORMA_PAGAMENTO'] . "'>" . $row['FORMA_PAGAMENTO'] . " </option>";
@@ -277,7 +288,7 @@
                                         <option>Cartão de crédito</option>
                                     </select>
                                 </div>
-                                <div class="col-sm-6">
+                                <div class="col-sm-6"><label>Status</label>
                                     <select class="form-control m-b" name="status">
                                         <?php if (isset($_GET['id']) && !isset($_POST['btNovo']) && isset($row['STATUS_PARCELA'])) {
                                             echo "<option value='" . $row['STATUS_PARCELA'] . "'>" . $row['STATUS_PARCELA'] . " </option>";
@@ -357,44 +368,48 @@
                                         $idParcela = $_GET['id'];
                                         $whereClause = "WHERE P.DIVIDA_ID_DIVIDA = " . $idParcela;
                                     }
-                                    $sql = "SELECT TOP 150 * FROM PARCELA P
+                                    $sql = "SELECT TOP 200 P.DATA_SYNC_ASSI AS DATASYNC, * FROM PARCELA P
                                     INNER JOIN DIVIDA D ON D.ID_DIVIDA = P.DIVIDA_ID_DIVIDA " . $whereClause;
                                     $stmt = sqlsrv_query($conn, $sql);
                                     if ($stmt === false) {
                                         die(print_r(sqlsrv_errors(), true));
                                     }
 
-                                    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                                        if ($row['STATUS_PARCELA'] == 'Pago') {
+
+                                    while ($rowParcela = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                                        if ($rowParcela['STATUS_PARCELA'] == 'Pago') {
                                             $button = "class='btn btn-primary btn-rounded' type='button'> <i class='fa fa-money'></i>";
                                         }
-                                        if ($row['STATUS_PARCELA'] == 'Em Aberto') {
+                                        if ($rowParcela['STATUS_PARCELA'] == 'Em Aberto') {
                                             $button = "class='btn btn-warning btn-rounded' type='button'> <i class='fa fa-warning'></i>";
                                         }
-                                        if ($row['STATUS_PARCELA'] == 'Atrasado') {
+                                        if ($rowParcela['STATUS_PARCELA'] == 'Atrasado') {
                                             $button = "class='btn btn-danger btn-rounded' type='button'> <i class='fa fa-minus-circle'></i>";
                                         }
-                                        if ($row['STATUS_PARCELA'] == 'Negociado') {
+                                        if ($rowParcela['STATUS_PARCELA'] == 'Negociado') {
                                             $button = "class='btn btn-info btn-rounded' type='button'> <i class='fa fa-handshake'></i>";
                                         }
-                                        if (empty($row['STATUS_PARCELA'])) {
+                                        if (empty($rowParcela['STATUS_PARCELA'])) {
                                             $button = "class='btn btn-secondary btn-rounded'";
-                                            $row['STATUS_PARCELA'] = "Sem status";
+                                            $rowParcela['STATUS_PARCELA'] = "Sem status";
                                         }
-                                        $idDivida = $row['ID_DIVIDA'];
+
+                                        $buttonStatusASSI = !empty($rowParcela['DATASYNC']) ? "<i class='fa fa-refresh' title='Sicronizado com ASSI: " . $rowParcela['DATASYNC']->format('d/m/Y') . "'></i>" : "<i class='fa fa-exclamation-circle' title='Divida não sincronizada com ASSI'> ";
+
+                                        $idDivida = $rowParcela['ID_DIVIDA'];
                                         echo "<tr class='gradeA'>
-                                        <td>" . $row['ID_PARCELA'] . "</td>
-                                        <td> <a href='dividas.php?id=" . $row['ID_DIVIDA'] . "' target='new_blank'>" . $row['ID_DIVIDA'] . "</td>
-                                        <td>" . $row['NUMERO'] . "</td>
-                                        <td>" . $row['DATA_VENCIMENTO']->format('d/m/Y') . "</td>
-                                        <td>" . $row['FORMA_PAGAMENTO'] . "</td>
-                                        <td>R$ " . number_format($row['VALOR'], 2, ",", ".") . "</td>
-                                        <td> <button " . $button . " " . $row['STATUS_PARCELA'] . "</button></td>
+                                        <td>" . $rowParcela['ID_PARCELA'] . "</td>
+                                        <td> <a href='dividas.php?id=" . $rowParcela['ID_DIVIDA'] . "' target='new_blank'>" . $rowParcela['ID_DIVIDA'] . "</td>
+                                        <td>" . $rowParcela['NUMERO'] . "</td>
+                                        <td>" . $rowParcela['DATA_VENCIMENTO']->format('d/m/Y') . "</td>
+                                        <td>" . $rowParcela['FORMA_PAGAMENTO'] . "</td>
+                                        <td>R$ " . number_format($rowParcela['VALOR'], 2, ",", ".") . "</td>
+                                        <td> <button " . $button . " " . $rowParcela['STATUS_PARCELA'] . "</button> $buttonStatusASSI </td>
                                         ";
                                         if(!$acessoUsuario){
                                             echo "<td class='center'>
-                                            <a href='parcelas.php?id=" . $row['ID_PARCELA'] . "&idDivida=" . $idDivida . "' title='Editar'><button class='btn btn-success btn-circle' type='button'><i class='fa fa-edit'></i></button></a>
-                                            <a href='javascript:deletar(" . $row['ID_PARCELA'] . ");' title='Deletar'><button class='btn btn-danger btn-circle' type='button'><i class='fa fa-trash'></i></button></a>
+                                            <a href='parcelas.php?id=" . $rowParcela['ID_PARCELA'] . "&idDivida=" . $idDivida . "' title='Editar'><button class='btn btn-success btn-circle' type='button'><i class='fa fa-edit'></i></button></a>
+                                            <a href='javascript:deletar(" . $rowParcela['ID_PARCELA'] . ");' title='Deletar'><button class='btn btn-danger btn-circle' type='button'><i class='fa fa-trash'></i></button></a>
                                             </td>";
                                         }
                                     echo "</tr>";

@@ -207,22 +207,26 @@
 
             $_POST['ID_ALUNO'] = isset($rowAluno['ID_ALUNO']) ? $rowAluno['ID_ALUNO'] : $_POST['ID_ALUNO'];
             $totalDivida = preg_replace('/[^0-9]/', '', $_POST['TOTAL']);
-            $entradaDivida = preg_replace('/[^0-9]/', '', $_POST['ENTRADA']);
+            $entradaDivida = empty($_POST['ENTRADA']) ? 0 : preg_replace('/[^0-9]/', '', $_POST['ENTRADA']);
+            $custoAdm = empty($_POST['CUSTOSADM']) ? 0 : preg_replace('/[^0-9]/', '', $_POST['CUSTOSADM']);
             $quantidadeParcelasDivida = preg_replace('/[^0-9]/', '', $_POST['QTD_PARCELAS']);
             $ano = substr($_POST['DATA_INICIAL'], 0, 4);
             $mes = substr($_POST['DATA_INICIAL'], 5, 2);
             $dataDivida = $_POST['DATA_INICIAL'];
+            $descricaoPeriodo = $_POST['DESCRICAO_PERIODO'];
 
             if(isset($_POST['ID_ALUNO']))
             {
-                $tsql= "INSERT INTO DIVIDA (ALUNO_ID_ALUNO, TOTAL, ENTRADA, QTD_PARCELAS, VALOR_PARCELA, DATA_INICIAL, STATUS_DIV) VALUES(
-                    '{$_POST['ID_ALUNO']}', 
-                    '{$totalDivida}', 
-                    '{$entradaDivida}', 
-                    '{$quantidadeParcelasDivida}', 
-                    '1', 
+                $tsql= "INSERT INTO DIVIDA (ALUNO_ID_ALUNO, TOTAL, ENTRADA, QTD_PARCELAS, VALOR_PARCELA, DATA_INICIAL, STATUS_DIV, CUSTOADM, DESCRICAO_PERIODO) VALUES(
+                    '{$_POST['ID_ALUNO']}',
+                    '{$totalDivida}',
+                    '{$entradaDivida}',
+                    '{$quantidadeParcelasDivida}',
+                    '1',
                     '{$dataDivida}',
-                    'Em aprovação')";
+                    'Em aprovação',
+                    '{$custoAdm}',
+                    '{$descricaoPeriodo}')";
                 if (!sqlsrv_query($conn, $tsql))
                 {
                     die('Erro em cadastrar divida: ' . sqlsrv_errors());
@@ -236,7 +240,8 @@
                 if(isset($rowDivida['ID_DIVIDA']))
                 {
                     $valorParcela = ( $totalDivida - $entradaDivida ) / $quantidadeParcelasDivida;
-                    
+                    $formaDePagamento = $_POST['formaDePagamento'] == "Forma de pagamento" ? "Boleto" : $_POST['formaDePagamento'];
+
                     if($entradaDivida){
                         $dataParcela = dataFormatada($ano, $mes);
                         $mes++;
@@ -247,11 +252,11 @@
                         }
 
                         $tsql= "INSERT INTO PARCELA ( DIVIDA_ID_DIVIDA, NUMERO, VALOR, STATUS_PARCELA, FORMA_PAGAMENTO, DATA_VENCIMENTO) VALUES (
-                        '{$rowDivida['ID_DIVIDA']}', 
-                        '1', 
-                        '{$entradaDivida}', 
-                        'Em Aberto', 
-                        'Boleto', 
+                        '{$rowDivida['ID_DIVIDA']}',
+                        '1',
+                        '{$entradaDivida}',
+                        'Em Aberto',
+                        '{$formaDePagamento}',
                         '{$dataParcela}')";
                         if (!sqlsrv_query($conn, $tsql))
                         {
@@ -281,6 +286,12 @@
                     }
                 }
             }
+
+            if ($formaDePagamento == "Cartão de crédito(GETNET)") {
+
+            }
+
+
             echo "<script>successCadastro();</script>";
             echo "<meta http-equiv='refresh' content='1;url=dividas.php?btFiltrarDivida=1&idDivida={$rowDivida['ID_DIVIDA']}'>"; 
         }
@@ -396,19 +407,19 @@
                                     <div class="panel panel-success">
                                         <div class="panel-heading">
                                             <h5 class="panel-title">
-                                                <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne"><i class="fa fa-arrow-circle-down"></i>  Verificar dados do aluno <b><?php echo $rowAluno['NOMEALUNO'] . " - " . $rowAluno['RA'];?></b> </a>
+                                                <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne"><h3><i class="fa fa-arrow-circle-down"></i>  Verifique dados de aluno e responsável abaixo:</h3> </a>
                                             </h5>
                                         </div>
-                                        <div id="collapseOne" class="panel-collapse collapse in">
+                                        <div id="collapseOne" class="panel-collapse collapse show">
                                             <div class="panel-body">
                                                 <div class="form-group  row">
                                                     <div class="col-sm-6">
                                                         <ul>
                                                             <h2>Aluno:</h2>
                                                             <?php
-                                                                echo "<li><h3>RA</h3> " . $rowAluno['RA'] . "</li>";
-                                                                echo "<li><h3>Nome</h3> " . $rowAluno['NOMEALUNO'] . "</li>";
-                                                                echo "<li><h3>Departamento</h3> " . $rowAluno['DEPARTAMENTO'] . " - "  . $rowAluno['NOMEC'] . " </li>";
+                                                                echo "<b>RA</b><h2>" . $rowAluno['RA'] . "</h2>";
+                                                                echo "<b>Nome</b><h2>" . $rowAluno['NOMEALUNO'] . "</h2> ";
+                                                                echo "<b>Departamento</b><h2>" . $rowAluno['DEPARTAMENTO'] . " - "  . $rowAluno['NOMEC'] . "</h2> ";
                                                             ?>
                                                         </ul>
                                                     </div>
@@ -441,18 +452,37 @@
                         <form action="" method="post">
 
                             <div class="form-group  row">
-                                <div class="col-sm-6"><input name="DATA_INICIAL" 
+                                
+                                <div class="col-sm-4"><label>Data inicial:</label><input name="DATA_INICIAL" 
                                     <?php if (isset($_GET['id']) && !isset($_POST['btNovo'])) {
                                             echo "value='" . $row['DATA_INICIAL']->format('d/m/Y') . "'";
                                         } else {
                                             echo "type='date'";
                                         } 
                                     ?> placeholder="Data inicial" class="form-control" required></div>
-                                <div class="col-sm-6"><input type="text" name="QTD_PARCELAS" placeholder="Quantidade de Parcelas" <?php if(isset($_GET['id']) && !isset($_POST['btNovo'])){ echo "value='".$row['RG']. "'"; }?> required class="form-control"></div>
+                                <div class="col-sm-4"><label>Qauntidade de parcelas</label><input type="text" name="QTD_PARCELAS" placeholder="Quantidade de Parcelas" required class="form-control"></div>
+                                <div class="col-sm-4"><label>Forma de pagamento</label><select class="form-control m-b" name="formaDePagamento">
+                                        <option>Cartão de crédito(GETNET)</option>
+                                        <option>PIX</option>
+                                        <option>Boleto</option>
+                                        <option>Depósito</option>
+                                        <option>Cartão de crédito</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="form-group row">
-                                <div class="col-sm-6"><input type="text" name="TOTAL" placeholder="Valor Total" <?php if(isset($_GET['id']) && !isset($_POST['btNovo'])){ echo "value='".$row['CPF']. "'"; }?> required class="form-control"></div>
-                                <div class="col-sm-6"><input type="text" name="ENTRADA" placeholder="Entrada (Opcional)" <?php if(isset($_GET['id']) && !isset($_POST['btNovo'])){ echo "value='".$row['EMAIL']. "'"; }?> class="form-control"></div>
+                                <div class="col-sm-4"><input type="text" name="TOTAL" placeholder="Valor Total" required class="form-control"></div>
+                                <div class="col-sm-4"><input type="text" name="CUSTOSADM" placeholder="Custos administrativos (Opcional)"  class="form-control"></div>
+                                <div class="col-sm-4"><input type="text" name="ENTRADA" placeholder="ENTRADA (Opcional)" class="form-control"></div>
+                            </div>
+
+                            <div class="form-group row">
+                                
+                                <div class="col-sm-12">
+                                <input type="text" name="DESCRICAO_PERIODO" placeholder="Descreva o período referente a está divida:" required class="form-control">
+                                    <br><label>   Periodo completo: Abril/2021 a Julho/2021</label>
+                                    <br><label>   Periodo especifico: Abril, Julho/2020 e Janeiro/2021</label>
+                                </div>
                             </div>
 
                             <?php 
@@ -495,7 +525,6 @@
                     </div>
                 </div>
             </div>
-        </div>
 
         <? } ?>
 
