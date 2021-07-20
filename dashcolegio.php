@@ -4,6 +4,7 @@
 <head>
 
     <?php
+    include("loadingPage.php");
     include("valida.php");
     $retornoProtegepagina = protegePagina();
     require('menu.php');

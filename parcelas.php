@@ -52,6 +52,7 @@
     </script>
 
     <?php
+    include("loadingPage.php");
     function dateEmSQL($dateSql)
     {
         $ano = substr($dateSql, 6);
@@ -77,6 +78,9 @@
             $acessoUsuario = $_SESSION['usuarioAcesso'];
         }
     }
+    if($_SESSION['usuarioAcesso'] == 5){
+        $acessoUsuario = $_SESSION['usuarioAcesso'];
+    }
 
     if (isset($_POST['btEdicao'])) {
 
@@ -84,7 +88,7 @@
         $numero = $_POST['numero'];
         $valor = empty($_POST['valor']) ? NULL : $_POST['valor'];
         $data = dateEmSQL($_POST['data']);
-        $dataSync = empty($_POST['dataSync']) ? NULL : "'".dateEmSQL($_POST['dataSync'])."'";
+        $dataSync = empty($_POST['dataSync']) ? 'NULL' : $_POST['dataSync'];
         $forma_pagamento = empty($_POST['forma_pagamento']) ? NULL : $_POST['forma_pagamento'];
         $status = empty($_POST['status']) ? NULL : $_POST['status'];
 
@@ -101,7 +105,7 @@
                 FORMA_PAGAMENTO = '$forma_pagamento',
                 NUMERO = '$numero',
                 DATA_VENCIMENTO = '$data',
-                DATA_SYNC_ASSI = $dataSync
+                DATA_SYNC_ASSI = '{$dataSync}'
                 WHERE ID_PARCELA = $idParcela";
             sqlsrv_query($conn, $tsql);
 
@@ -272,7 +276,7 @@
                                                                                 echo "value='" . $row['DATA_SYNC_ASSI']->format('d/m/Y') . "'";
                                                                             } else {
                                                                                 echo "type='date'";
-                                                                            } ?> placeholder="Data inicial" class="form-control"></div>
+                                                                            } ?> placeholder="Data de sincronização ASSI" class="form-control"></div>
                             </div>
 
                             <div class="form-group row">
@@ -360,6 +364,17 @@
                                     $whereClause = '';
                                     if($acessoUsuario){
                                         $whereClause = "WHERE P.DIVIDA_ID_DIVIDA = 0";
+                                    }
+                                    if($acessoUsuario == 5){ 
+                                        $alunos = "";
+                                        foreach($_SESSION['ALUNOS'] as $aluno){
+                                            if(!empty($aluno)){
+                                                $alunos .= $aluno . ", ";
+                                            }
+                                        }
+                                        $alunos = substr($alunos, 0, -2);
+
+                                        $whereClause = "WHERE D.ALUNO_ID_ALUNO IN (" . $alunos . ")";
                                     }
                                     if (isset($_GET['idDivida'])) {
                                         $idDivida = $_GET['idDivida'];

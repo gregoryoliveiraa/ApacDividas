@@ -66,9 +66,22 @@ function validaUsuario($usuario, $senha)
     if (empty($row['ID_USUARIO'])) {
         return false;
     } else {
+
+        if (!empty($row['ID_RESPONSAVEL'])){
+            $sql2 = "SELECT * FROM ALUNO WHERE ID_RESPONSAVEL = " . $row['ID_RESPONSAVEL'];
+            $stmt2 = sqlsrv_query($conn, $sql2);
+            if ($stmt2 === false) {
+                die(print_r(sqlsrv_errors(), true));
+            }
+
+            while ($row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC)) {
+                $_SESSION['ALUNOS'][] = $row2['ID_ALUNO'];
+            }
+        }
         // O registro foi encontrado => o usuário é valido
 
         // Definimos dois valores na sessão com os dados do usuário
+        $_SESSION['ID_RESPONSAVEL'] = $row['ID_RESPONSAVEL'];
         $_SESSION['usuarioID'] = $row['ID_USUARIO']; // Pega o valor da coluna 'id do registro encontrado no MySQL
         $_SESSION['usuarioNome'] = $row['NOME']; // Pega o valor da coluna 'nome' do registro encontrado no MySQL
         $_SESSION['usuarioAcesso'] = $row['ACESSO'];

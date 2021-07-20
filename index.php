@@ -5,12 +5,20 @@
 
     <?php
     
+    include("loadingPage.php");
     include("valida.php");
+    
     $retornoProtegepagina = protegePagina();
     if(isset($_SESSION['usuarioAcesso']) && isset($_SESSION['usuarioIdColegio'])){
         if($_SESSION['usuarioAcesso'] == 1 && $_SESSION['usuarioIdColegio'] > 0){
-            echo "<meta http-equiv='refresh' content='0;url=dashpagamentos.php'>"; 
+            echo "<meta http-equiv='refresh' content='0;url=dashpagamentos.php'>";
+            die();
         }
+    }
+
+    if($_SESSION['usuarioAcesso'] == 5){
+        echo "<meta http-equiv='refresh' content='0;url=dashpagamentos.php'>"; 
+        die();
     }
     
     require('menu.php');

@@ -72,21 +72,24 @@
                                 $endereco == "colegio"  ||
                                 $endereco == "dividas"  ||
                                 $endereco == "parcelas" ||
-                                $endereco == "usuario") {
+                                $endereco == "usuario" || $acessoUsuario == 5 ) {
                                 echo "class='active'";
                             } ?>>
                             <a href="index.html"><i class="fa fa-cog"></i> <span class="nav-label">Gerenciamento</span> <span class="fa arrow"></span></a>
                             <ul class="nav nav-second-level">
                                 <li <?php echo $endereco == "dividas" ? "class='active'" : ""; ?>><a href="dividas.php">Dívidas</a></li>
                                 <li <?php echo $endereco == "parcelas" ? "class='active'" : ""; ?>><a href="parcelas.php">Parcelas</a></li>
+                                <?php if( $acessoUsuario != 5 ) { ?>
                                 <li <?php echo $endereco == "aluno" ? "class='active'" : ""; ?>><a href="aluno.php">Aluno</a></li>
                                 <li <?php echo $endereco == "responsavel" ? "class='active'" : ""; ?>><a href="responsavel.php">Responsável</a></li>
+                                <?php } ?>
                                 <?php if( $acessoUsuario == 3 ) { ?>
                                     <li <?php echo $endereco == "colegio" ? "class='active'" : ""; ?>><a href="colegio.php">Colégio</a></li>
                                     <li <?php echo $endereco == "usuario" ? "class='active'" : ""; ?>><a href="usuario.php">Usuário</a></li>
                                 <?php } ?>
                             </ul>
                         </li>
+                        <?php if( $acessoUsuario != 5 ) { ?>
                         <li <?php if ($endereco == "dividalancar") {
                                 echo "class='active'";
                             } ?>>
@@ -95,6 +98,7 @@
                                 <li <?php echo $endereco == "dividalancar" ? "class='active'" : ""; ?>><a href="dividalancar.php">Lançar</a></li>
                             </ul>
                         </li>
+                        <?php } ?>
                         <?php if( $acessoUsuario == 3 ) { ?>
                             <li <?php if ($endereco == "aasidividas" || $endereco == "aasipessoas") {
                                     echo "class='active'";

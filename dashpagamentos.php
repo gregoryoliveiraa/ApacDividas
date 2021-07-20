@@ -4,6 +4,7 @@
 <head>
 
     <?php
+    include("loadingPage.php");
     include("valida.php");
     $retornoProtegepagina = protegePagina();
     require('menu.php');
@@ -17,6 +18,9 @@
             $_GET['Ano'] = "Selecione o ano";
             $_GET['Mes'] ="Selecione o mes";
         }
+    }
+    if($_SESSION['usuarioAcesso'] == 5) {
+        $acessoUsuario = $_SESSION['usuarioAcesso'];
     }
 
     if ($retornoProtegepagina) {
@@ -49,8 +53,12 @@
             }
             
         }
+
         $desabilitarGrafico = 1;
-        if(isset($_GET['id_colegio']) && $_GET['id_colegio'] != "Selecione o Colégio"){
+        $desabilitarPesquisa = 1;
+
+
+        if(!empty($_GET['id_colegio']) && $_GET['id_colegio'] != "Selecione o Colégio"){
             if($_GET['Ano'] == "Selecione o ano" && $_GET['Mes'] == "Selecione o mes"){
                 $dataInicio = "2017-01-01";
                 $dataFim = date('Y-m')."-28";
@@ -75,6 +83,25 @@
             $queryDivida = " WHERE D.DATA_INICIAL >= '$dataInicio' AND D.DATA_INICIAL <= '$dataFim'";
             $queryParcela = " WHERE P.DATA_VENCIMENTO >= '$dataInicio' AND P.DATA_VENCIMENTO <= '$dataFim'";
             $rowColegio['NOME'] = "";
+        }
+
+        if($_SESSION['usuarioAcesso'] == 5){
+            $alunos = "";
+            foreach($_SESSION['ALUNOS'] as $aluno){
+                if(!empty($aluno)){
+                    $alunos .= $aluno . ", ";
+                }
+            }
+            $alunos = substr($alunos, 0, -2);
+
+            $queryDivida = "WHERE ALUNO_ID_ALUNO IN (" . $alunos . ")";
+
+            $queryParcela = " LEFT JOIN DIVIDA D ON D.ID_DIVIDA = P.DIVIDA_ID_DIVIDA
+            LEFT JOIN ALUNO A ON A.ID_ALUNO = D.ALUNO_ID_ALUNO
+            WHERE D.ALUNO_ID_ALUNO IN (" . $alunos . ")" ;
+
+            $desabilitarGrafico = 0;
+            $desabilitarPesquisa = 0;
         }
 
         
@@ -183,7 +210,7 @@
                     <div class="ibox ">
                         <div class="ibox-title">
                             <span class="label label-danger float-right"><? echo intval($total); ?>%</span>
-                            <h5>À receber</h5>
+                            <h5><? if($_SESSION['usuarioAcesso'] != 5) { ?> À receber <? }else{ ?> À pagar <? } ?></h5>
                         </div>
                         <a href="dividas.php?status='emAberto'" style="text-decoration:none; color: inherit;">
                             <div class="ibox-content">
@@ -237,6 +264,7 @@
         <? } ?>
 
 
+        <? if($desabilitarPesquisa){ ?>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="ibox ">
@@ -309,6 +337,7 @@
                     </div>
                 </div>
             </div>
+            <? } ?>
 
             <div class="row">
                 <div class="col-lg-6">

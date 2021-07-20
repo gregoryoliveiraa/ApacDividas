@@ -52,6 +52,7 @@
     </script>
 
     <?php
+    include("loadingPage.php");
     function dateEmSQL($dateSql)
     {
         $ano = substr($dateSql, 6);

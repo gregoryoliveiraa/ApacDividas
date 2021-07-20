@@ -1,19 +1,17 @@
-<?php 
+<?php
 
-require('conexao.php');
+$cURLConnection = curl_init();
 
-        $sql = "select * from v_aasi_acordo_confissao  where Historico LIKE '%83219%' ";
-                                            $stmt = sqlsrv_query($conn, $sql);
-                                            if ($stmt === false) {
-                                                die(print_r(sqlsrv_errors(), true));
-                                            }
-                                            $cont = 0;
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'authorization: Bearer 72402c54-6bd3-4895-a6b4-adfded0c11dc',
+    'seller_id: 6eb2412c-165a-41cd-b1d9-76c575d70a28'
+));
+curl_setopt($cURLConnection, CURLOPT_URL, 'https://api-homologacao.getnet.com.br/v1/plans?page=1&limit=10');
+curl_setopt($cURLConnection, CURLOPT_RETURNTRANSFER, true);
 
-                                            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                                                var_export($row);
-                                                $cont++;
-                                                if($cont > 50)die();
-                                            }
-                                            
+$phoneList = curl_exec($cURLConnection);
+curl_close($cURLConnection);
 
-                                            ?>
+$jsonArrayResponse - json_decode($phoneList);
+
+?>

@@ -62,6 +62,8 @@
     </script>
 
 <?php 
+
+        include("loadingPage.php");
         if (!isset($_POST['btEdicao']) && !isset($_POST['btNovo'])){
             include("valida.php"); 
             $retornoProtegepagina = protegePagina();

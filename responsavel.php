@@ -34,6 +34,14 @@
             )
         };
 
+        function successUsuario(usuarios){
+            Swal.fire(
+            'Importação de '+usuarios+' usuários',
+            'realizado com sucesso ',
+            'success'
+            )
+        };
+
         function deletar(id){
             Swal.fire({
             title: 'Tem certeza que deseja deletar?',
@@ -54,6 +62,7 @@
     </script>
 
 <?php 
+        include("loadingPage.php");
         if (!isset($_POST['btEdicao']) && !isset($_POST['btNovo'])){
             include("valida.php"); 
             $retornoProtegepagina = protegePagina();
@@ -175,6 +184,64 @@
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
         sqlsrv_free_stmt($stmt);
+    }
+
+
+    function nome_ultimo($nome){
+        $temp = explode(" ",$nome);
+        $nomeNovo = strtolower($temp[0]) . "." . strtolower($temp[count($temp)-1]);
+        return $nomeNovo;
+    }
+    
+    if (isset($_GET['gerarUsuarios'])){
+
+        $sql3 = "SELECT * FROM USUARIO";
+        $stmt3 = sqlsrv_query($conn, $sql3);
+        if ($stmt3 === false) {
+            die(print_r(sqlsrv_errors(), true));
+        }
+        while ($row3 = sqlsrv_fetch_array($stmt3, SQLSRV_FETCH_ASSOC)) {
+            $arrayUsuarios[] = $row3['ID_RESPONSAVEL'];
+        }
+        $count = 0;
+
+        $sql2 = "SELECT * FROM RESPONSAVEL";
+        $stmt2 = sqlsrv_query($conn, $sql2);
+        if ($stmt2 === false) {
+            die(print_r(sqlsrv_errors(), true));
+        }
+
+        while ($row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC)) {
+
+            if (!in_array($row2['ID_RESPONSAVEL'], $arrayUsuarios)) {
+
+                $NOME = $row2['NOME'];
+                $EMAIL = $row2['EMAIL'];
+                $usuario = nome_ultimo($row2['NOME']);
+                $ID_RESPONSAVEL = $row2['ID_RESPONSAVEL'];
+
+                $tsql = "INSERT INTO USUARIO (
+                NOME,
+                EMAIL,
+                USUARIO,
+                SENHA,
+                ACESSO,
+                ID_RESPONSAVEL)
+                VALUES (
+                '{$NOME}',
+                '{$EMAIL}',
+                '{$usuario}',
+                'apac2021',
+                5,
+                {$ID_RESPONSAVEL})";
+                if (!sqlsrv_query($conn, $tsql)) {
+                    die('Erro: ' . sqlsrv_errors());
+                }
+                $count++;
+                echo "<script>successUsuario(" . $count . ");</script>";
+                echo "<meta http-equiv='refresh' content='3;url=responsavel.php'>";
+            }
+        }
     }
 
 ?>
@@ -396,7 +463,7 @@
                     </tfoot>
                     </table>
                         </div>
-
+                        <?php if(!$acessoUsuario){ ?> <a href='responsavel.php?gerarUsuarios=1' title='Gerar usuários para todos os responsáveis'><button class='btn btn-warning btn-lg' type='button'><i class='fa fa-trash'></i> Gerar usuários para todos os responsáveis</button></a><? } ?>
                     </div>
                 </div>
             </div>

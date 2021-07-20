@@ -52,6 +52,7 @@
     </script>
 
     <?php
+    include("loadingPage.php");
     function dateEmSQL($dateSql)
     {
         $ano = substr($dateSql, 6);
@@ -229,10 +230,24 @@
         $_GET['id'] = null;
     }
 
-    if (isset($_GET['btFiltrarDivida']) || isset($_GET['id']) ) {
+    if (isset($_GET['btFiltrarDivida']) || isset($_GET['id']) || $_SESSION['usuarioAcesso'] == 5) {
 
-        $queryWhere = "Where ";
         $cont = 0;
+
+        if($_SESSION['usuarioAcesso'] == 5){
+            $alunos = "";
+            foreach($_SESSION['ALUNOS'] as $aluno){
+                if(!empty($aluno)){
+                    $alunos .= $aluno . ", ";
+                }
+            }
+            $alunos = substr($alunos, 0, -2);
+
+            $queryWhere = "WHERE ALUNO_ID_ALUNO IN (" . $alunos . ")    ";
+            $acessoUsuario = 5;
+        }else{
+            $queryWhere = "Where ";
+        }
 
         if (!empty($_GET['dataInicial'])) {
             $dataInicial = $_GET['dataInicial'];
@@ -460,6 +475,7 @@
             </div>
         <? } ?>
 
+        <?php if (!$acessoUsuario == 5) { ?>
         <div class="row">
             <div class="col-lg-12">
                 <div class="ibox collapsed">
@@ -541,6 +557,7 @@
                 </div>
             </div>
         </div>
+        <? } ?>
 
 
         <div class="row">
@@ -625,8 +642,11 @@
                                         }
                                         echo "<tr class='gradeA'>
                                         <td><a href='parcelas.php?idDivida=" . $row['ID_DIVIDA'] . "' title='Gerenciar parcelas desta dívida'><button class='btn btn-success btn-rounded' type='button'>" . $row['ID_DIVIDA'] . " <i class='fa fa-bar-chart'></i></button></a></td>
-                                        <td> <a href='aluno.php?id=" . $row['ID_ALUNO'] . "' target='new_blank'>" . $row['RA'] . "-" . $row['NOMEA'] . "</td>
                                         <td>";
+                                        if ($acessoUsuario != 5) {
+                                            echo "<a href='aluno.php?id=" . $row['ID_ALUNO'] . "' target='new_blank'>";
+                                        }
+                                        echo $row['RA'] . "-" . $row['NOMEA'] . "</td> <td>";
                                         if (!$acessoUsuario) {
                                             echo "<a href='colegio.php?id=" . $row['ID_COLEGIO'] . "' target='new_blank'>";
                                         }
